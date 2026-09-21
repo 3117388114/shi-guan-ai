@@ -1,9 +1,343 @@
-import React,{useState}from'react';import{createRoot}from'react-dom/client';import{ArrowRight,ShieldCheck,Activity,BookOpen,ChevronLeft}from'lucide-react';import'./styles.css';
-if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));
-type A={age:string;smoking:string;alcohol:string;family:string;symptoms:string};
+import React, { useState } from "react";
+import { createRoot } from "react-dom/client";
+import {
+  ArrowRight,
+  ShieldCheck,
+  Activity,
+  BookOpen,
+  ChevronLeft,
+} from "lucide-react";
+import "./styles.css";
+if ("serviceWorker" in navigator)
+  window.addEventListener("load", () =>
+    navigator.serviceWorker.register("/sw.js"),
+  );
+type A = {
+  age: string;
+  smoking: string;
+  alcohol: string;
+  family: string;
+  symptoms: string;
+};
 const API_BASE = import.meta.env.PROD
-  ? ''
-  : (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || 'http://localhost:8000';
-console.info('[esophageal-screening] API_BASE_URL:', API_BASE);
-const qs=[{key:'age',title:'基本信息',label:'您的年龄段',options:['40岁以下','40–59岁','60岁及以上']},{key:'smoking',title:'生活方式',label:'吸烟情况',options:['从不吸烟','曾经吸烟，已戒','目前吸烟']},{key:'alcohol',title:'生活方式',label:'饮酒情况',options:['不饮酒','偶尔饮酒','经常饮酒']},{key:'family',title:'家族史 / 既往史',label:'直系亲属是否有食管癌病史？',options:['没有','不清楚','有']},{key:'symptoms',title:'相关症状',label:'近期是否有持续吞咽不适、进行性吞咽困难或体重下降？',options:['没有','有其中一项','有多项或持续加重']}];
-function App(){const[page,setPage]=useState<'home'|'assessment'|'result'>('home');const[step,setStep]=useState(0);const[ans,setAns]=useState<A>({age:'',smoking:'',alcohol:'',family:'',symptoms:''});const[result,setResult]=useState<any>();const submit=async()=>{setResult(undefined);try{const requestUrl=`${API_BASE}/api/assessment`;console.info('[esophageal-screening] request start:',requestUrl,ans);const response=await fetch(requestUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(ans)});console.info('[esophageal-screening] response status:',response.status,response.statusText);if(!response.ok)throw new Error(`HTTP ${response.status}`);const payload:unknown=await response.json();console.info('[esophageal-screening] response body:',payload);if(!payload||typeof payload!=='object')throw new Error('响应不是 JSON 对象');const data=payload as Record<string,unknown>;if(typeof data.risk_level!=='string'||typeof data.risk_score!=='number'||!Array.isArray(data.factors)||!Array.isArray(data.recommendations))throw new Error('响应字段不完整');setResult({risk_level:data.risk_level,risk_score:data.risk_score,factors:data.factors.filter((item):item is string=>typeof item==='string'),recommendations:data.recommendations.filter((item):item is string=>typeof item==='string')})}catch(error){const message=error instanceof Error?error.message:'请求失败';setResult({error:`无法获取评估结果：${message}`})}setPage('result')};return <><header><div className="brand"><span className="mark">+</span><span>食管健康<span>早筛平台</span></span></div><nav><button onClick={()=>setPage('home')}>首页</button><button onClick={()=>setPage('assessment')}>风险评估</button><button>科普知识</button></nav><span className="tag"><ShieldCheck size={16}/>健康风险评估</span></header>{page==='home'&&<main><section className="hero"><div><p className="eyebrow">ESOPHAGEAL HEALTH · MVP</p><h1>早一步了解风险<br/><em>守护每一次吞咽</em></h1><p className="lead">用 2 分钟完成健康风险评估，获得基于公开防治知识的个性化健康提示。</p><button className="primary" onClick={()=>setPage('assessment')}>开始风险评估 <ArrowRight size={18}/></button><p className="small">研究 / 演示原型，不用于临床诊断</p></div><div className="hero-card"><Activity size={28}/><strong>关注食管健康</strong><span>定期关注身体信号，保持健康生活方式</span><div className="mini-bars"><i/><i/><i/><i/><i/></div></div></section><section className="info"><article><BookOpen/><h3>认识食管癌</h3><p>食管癌发生在连接咽部与胃的食管。早期可能没有明显症状，持续关注吞咽变化和体重变化，有助于及时咨询专业人员。</p><p className="source">来源：WHO Cancer fact sheet；国家卫生健康委《食管癌诊疗指南（2022年版）》</p></article><article><ShieldCheck/><h3>需要关注的因素</h3><p>年龄增长、吸烟、饮酒、食管癌家族史，以及长期摄入过烫食物等因素可能增加风险。风险因素不等于已经患病。</p><p className="source">来源：WHO/IARC；国家卫生健康委《食管癌诊疗指南（2022年版）》</p></article><article><Activity/><h3>症状与筛查</h3><p>进行性吞咽困难、吞咽疼痛、持续胸骨后不适、原因不明的体重下降等情况应及时就医。筛查方式和频率应由专业医疗人员结合个人风险判断。</p><p className="source">来源：中国抗癌协会《食管癌筛查与早诊早治指南》；WHO</p></article><article><ShieldCheck/><h3>日常预防</h3><p>戒烟限酒，避免经常食用过烫食物，增加蔬菜水果和膳食纤维，保持健康体重，并按医嘱处理长期反流等问题。</p><p className="source">来源：WHO Cancer prevention recommendations；中国居民膳食指南（2022）</p></article><article><BookOpen/><h3>什么时候需要咨询</h3><p>如果吞咽困难持续或逐渐加重，或出现黑便、呕血、明显消瘦等情况，请尽快前往医疗机构。平台评估不能替代检查。</p><p className="source">来源：国家卫生健康委《食管癌诊疗指南（2022年版）》</p></article><article><Activity/><h3>信息边界</h3><p>本页面用于健康教育和风险沟通。指南会更新，具体建议请以正规医疗机构和专业人员的最新意见为准。</p><p className="source">内容核对：2026-09-18；仅作科普，不构成医疗建议</p></article></section><div className="notice">本平台提供健康科普与风险评估信息，不构成医学诊断或治疗建议。</div></main>}{page==='assessment'&&<main className="assessment"><div className="progress"><span>风险评估</span><b>{step+1} / {qs.length}</b><div><i style={{width:`${(step+1)/qs.length*100}%`}}/></div></div><section className="question"><p className="eyebrow">{qs[step].title}</p><h2>{qs[step].label}</h2><p className="muted">请选择最符合您当前情况的选项</p><div className="options">{qs[step].options.map(o=><button className={ans[qs[step].key as keyof A]===o?'selected':''} onClick={()=>setAns({...ans,[qs[step].key]:o})} key={o}>{o}<span>○</span></button>)}</div><div className="actions">{step>0&&<button className="back" onClick={()=>setStep(step-1)}><ChevronLeft size={17}/>上一步</button>}{step<qs.length-1?<button className="primary" disabled={!ans[qs[step].key as keyof A]} onClick={()=>setStep(step+1)}>下一步 <ArrowRight size={18}/></button>:<button className="primary" disabled={!ans[qs[step].key as keyof A]} onClick={submit}>查看评估结果 <ArrowRight size={18}/></button>}</div></section></main>}{page==='result'&&<main className="result"><p className="eyebrow">ASSESSMENT RESULT</p><h1>食管健康风险评估结果</h1><section className="result-card"><div className="score"><span>综合风险等级</span><strong>{result?.error?'请求失败':result?.risk_level||'计算中'}</strong><small>{result?.error || ('评估分数：' + (result?.risk_score ?? '-') + ' / 100')}</small></div><div><h3>主要影响因素</h3>{(result?.factors||[]).map((f:string)=><p className="factor" key={f}>● {f}</p>)}<h3>下一步建议</h3>{(result?.recommendations||[]).map((f:string)=><p key={f}>{f}</p>)}</div></section><button className="back" onClick={()=>{setPage('assessment');setStep(0)}}>重新评估</button><div className="notice">本结果仅用于健康风险评估，不代表临床诊断。如有持续或明显不适，建议咨询专业医疗人员。</div></main>}</>};createRoot(document.getElementById('root')!).render(<App/>);
+  ? ""
+  : (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ||
+    "http://localhost:8000";
+console.info("[esophageal-screening] API_BASE_URL:", API_BASE);
+const qs = [
+  {
+    key: "age",
+    title: "基本信息",
+    label: "您的年龄段",
+    options: ["40岁以下", "40–59岁", "60岁及以上"],
+  },
+  {
+    key: "smoking",
+    title: "生活方式",
+    label: "吸烟情况",
+    options: ["从不吸烟", "曾经吸烟，已戒", "目前吸烟"],
+  },
+  {
+    key: "alcohol",
+    title: "生活方式",
+    label: "饮酒情况",
+    options: ["不饮酒", "偶尔饮酒", "经常饮酒"],
+  },
+  {
+    key: "family",
+    title: "家族史 / 既往史",
+    label: "直系亲属是否有食管癌病史？",
+    options: ["没有", "不清楚", "有"],
+  },
+  {
+    key: "symptoms",
+    title: "相关症状",
+    label: "近期是否有持续吞咽不适、进行性吞咽困难或体重下降？",
+    options: ["没有", "有其中一项", "有多项或持续加重"],
+  },
+];
+function App() {
+  const [page, setPage] = useState<"home" | "assessment" | "result">("home");
+  const [step, setStep] = useState(0);
+  const [ans, setAns] = useState<A>({
+    age: "",
+    smoking: "",
+    alcohol: "",
+    family: "",
+    symptoms: "",
+  });
+  const [result, setResult] = useState<any>();
+  const submit = async () => {
+    setResult(undefined);
+    try {
+      const requestUrl = `${API_BASE}/api/assessment`;
+      const requestBody = {
+        age: String(ans.age),
+        smoking: String(ans.smoking),
+        alcohol: String(ans.alcohol),
+        family: String(ans.family),
+        symptoms: String(ans.symptoms),
+      };
+      console.info("[esophageal-screening] request start:", requestUrl, requestBody);
+      const response = await fetch(requestUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+      console.info(
+        "[esophageal-screening] response status:",
+        response.status,
+        response.statusText,
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload: unknown = await response.json();
+      console.info("[esophageal-screening] response body:", payload);
+      if (!payload || typeof payload !== "object")
+        throw new Error("响应不是 JSON 对象");
+      const data = payload as Record<string, unknown>;
+      if (
+        typeof data.risk_level !== "string" ||
+        typeof data.risk_score !== "number" ||
+        !Array.isArray(data.factors) ||
+        !Array.isArray(data.recommendations)
+      )
+        throw new Error("响应字段不完整");
+      setResult({
+        risk_level: data.risk_level,
+        risk_score: data.risk_score,
+        factors: data.factors.filter(
+          (item): item is string => typeof item === "string",
+        ),
+        recommendations: data.recommendations.filter(
+          (item): item is string => typeof item === "string",
+        ),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "请求失败";
+      setResult({ error: `无法获取评估结果：${message}` });
+    }
+    setPage("result");
+  };
+  return (
+    <>
+      <header>
+        <div className="brand">
+          <span className="mark">+</span>
+          <span>
+            食管健康<span>早筛平台</span>
+          </span>
+        </div>
+        <nav>
+          <button onClick={() => setPage("home")}>首页</button>
+          <button onClick={() => setPage("assessment")}>风险评估</button>
+          <button>科普知识</button>
+        </nav>
+        <span className="tag">
+          <ShieldCheck size={16} />
+          健康风险评估
+        </span>
+      </header>
+      {page === "home" && (
+        <main>
+          <section className="hero">
+            <div>
+              <p className="eyebrow">ESOPHAGEAL HEALTH · MVP</p>
+              <h1>
+                早一步了解风险
+                <br />
+                <em>守护每一次吞咽</em>
+              </h1>
+              <p className="lead">
+                用 2
+                分钟完成健康风险评估，获得基于公开防治知识的个性化健康提示。
+              </p>
+              <button className="primary" onClick={() => setPage("assessment")}>
+                开始风险评估 <ArrowRight size={18} />
+              </button>
+              <p className="small">研究 / 演示原型，不用于临床诊断</p>
+            </div>
+            <div className="hero-card">
+              <Activity size={28} />
+              <strong>关注食管健康</strong>
+              <span>定期关注身体信号，保持健康生活方式</span>
+              <div className="mini-bars">
+                <i />
+                <i />
+                <i />
+                <i />
+                <i />
+              </div>
+            </div>
+          </section>
+          <section className="info">
+            <article>
+              <BookOpen />
+              <h3>认识食管癌</h3>
+              <p>
+                食管癌发生在连接咽部与胃的食管。早期可能没有明显症状，持续关注吞咽变化和体重变化，有助于及时咨询专业人员。
+              </p>
+              <p className="source">
+                来源：WHO Cancer fact
+                sheet；国家卫生健康委《食管癌诊疗指南（2022年版）》
+              </p>
+            </article>
+            <article>
+              <ShieldCheck />
+              <h3>需要关注的因素</h3>
+              <p>
+                年龄增长、吸烟、饮酒、食管癌家族史，以及长期摄入过烫食物等因素可能增加风险。风险因素不等于已经患病。
+              </p>
+              <p className="source">
+                来源：WHO/IARC；国家卫生健康委《食管癌诊疗指南（2022年版）》
+              </p>
+            </article>
+            <article>
+              <Activity />
+              <h3>症状与筛查</h3>
+              <p>
+                进行性吞咽困难、吞咽疼痛、持续胸骨后不适、原因不明的体重下降等情况应及时就医。筛查方式和频率应由专业医疗人员结合个人风险判断。
+              </p>
+              <p className="source">
+                来源：中国抗癌协会《食管癌筛查与早诊早治指南》；WHO
+              </p>
+            </article>
+            <article>
+              <ShieldCheck />
+              <h3>日常预防</h3>
+              <p>
+                戒烟限酒，避免经常食用过烫食物，增加蔬菜水果和膳食纤维，保持健康体重，并按医嘱处理长期反流等问题。
+              </p>
+              <p className="source">
+                来源：WHO Cancer prevention
+                recommendations；中国居民膳食指南（2022）
+              </p>
+            </article>
+            <article>
+              <BookOpen />
+              <h3>什么时候需要咨询</h3>
+              <p>
+                如果吞咽困难持续或逐渐加重，或出现黑便、呕血、明显消瘦等情况，请尽快前往医疗机构。平台评估不能替代检查。
+              </p>
+              <p className="source">
+                来源：国家卫生健康委《食管癌诊疗指南（2022年版）》
+              </p>
+            </article>
+            <article>
+              <Activity />
+              <h3>信息边界</h3>
+              <p>
+                本页面用于健康教育和风险沟通。指南会更新，具体建议请以正规医疗机构和专业人员的最新意见为准。
+              </p>
+              <p className="source">
+                内容核对：2026-09-18；仅作科普，不构成医疗建议
+              </p>
+            </article>
+          </section>
+          <div className="notice">
+            本平台提供健康科普与风险评估信息，不构成医学诊断或治疗建议。
+          </div>
+        </main>
+      )}
+      {page === "assessment" && (
+        <main className="assessment">
+          <div className="progress">
+            <span>风险评估</span>
+            <b>
+              {step + 1} / {qs.length}
+            </b>
+            <div>
+              <i style={{ width: `${((step + 1) / qs.length) * 100}%` }} />
+            </div>
+          </div>
+          <section className="question">
+            <p className="eyebrow">{qs[step].title}</p>
+            <h2>{qs[step].label}</h2>
+            <p className="muted">请选择最符合您当前情况的选项</p>
+            <div className="options">
+              {qs[step].options.map((o) => (
+                <button
+                  className={
+                    ans[qs[step].key as keyof A] === o ? "selected" : ""
+                  }
+                  onClick={() => setAns({ ...ans, [qs[step].key]: o })}
+                  key={o}
+                >
+                  {o}
+                  <span>○</span>
+                </button>
+              ))}
+            </div>
+            <div className="actions">
+              {step > 0 && (
+                <button className="back" onClick={() => setStep(step - 1)}>
+                  <ChevronLeft size={17} />
+                  上一步
+                </button>
+              )}
+              {step < qs.length - 1 ? (
+                <button
+                  className="primary"
+                  disabled={!ans[qs[step].key as keyof A]}
+                  onClick={() => setStep(step + 1)}
+                >
+                  下一步 <ArrowRight size={18} />
+                </button>
+              ) : (
+                <button
+                  className="primary"
+                  disabled={!ans[qs[step].key as keyof A]}
+                  onClick={submit}
+                >
+                  查看评估结果 <ArrowRight size={18} />
+                </button>
+              )}
+            </div>
+          </section>
+        </main>
+      )}
+      {page === "result" && (
+        <main className="result">
+          <p className="eyebrow">ASSESSMENT RESULT</p>
+          <h1>食管健康风险评估结果</h1>
+          <section className="result-card">
+            <div className="score">
+              <span>综合风险等级</span>
+              <strong>
+                {result?.error ? "请求失败" : result?.risk_level || "计算中"}
+              </strong>
+              <small>
+                {result?.error ||
+                  "评估分数：" + (result?.risk_score ?? "-") + " / 100"}
+              </small>
+            </div>
+            <div>
+              <h3>主要影响因素</h3>
+              {(result?.factors || []).map((f: string) => (
+                <p className="factor" key={f}>
+                  ● {f}
+                </p>
+              ))}
+              <h3>下一步建议</h3>
+              {(result?.recommendations || []).map((f: string) => (
+                <p key={f}>{f}</p>
+              ))}
+            </div>
+          </section>
+          <button
+            className="back"
+            onClick={() => {
+              setPage("assessment");
+              setStep(0);
+            }}
+          >
+            重新评估
+          </button>
+          <div className="notice">
+            本结果仅用于健康风险评估，不代表临床诊断。如有持续或明显不适，建议咨询专业医疗人员。
+          </div>
+        </main>
+      )}
+    </>
+  );
+}
+createRoot(document.getElementById("root")!).render(<App />);
