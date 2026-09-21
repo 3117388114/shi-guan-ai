@@ -10,7 +10,7 @@ import {
 import "./styles.css";
 if ("serviceWorker" in navigator)
   window.addEventListener("load", () =>
-    navigator.serviceWorker.register("/sw.js"),
+    navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }),
   );
 type A = {
   age: string;
@@ -20,7 +20,8 @@ type A = {
   symptoms: string;
 };
 const API_BASE = import.meta.env.PROD
-  ? ""
+  ? (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ||
+    "https://shi-guan-ai.onrender.com"
   : (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ||
     "http://localhost:8000";
 console.info("[esophageal-screening] API_BASE_URL:", API_BASE);
