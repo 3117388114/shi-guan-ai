@@ -45,6 +45,7 @@ def questionnaire(): return {'version':'0.1-demo','disclaimer':'研究/演示原
 def assessment(data:Assessment):
  score=0; factors=[]
  rules=[('age','60岁及以上',20,'年龄因素'),('smoking','目前吸烟',20,'吸烟相关因素'),('alcohol','经常饮酒',15,'饮酒相关因素'),('family','有',25,'家族史因素'),('symptoms','有多项或持续加重',20,'症状因素')]
+ rules=[('age','\u0036\u0030\u5c81\u53ca\u4ee5\u4e0a',20,'\u5e74\u9f84\u56e0\u7d20'),('smoking','\u76ee\u524d\u5438\u70df',20,'\u5438\u70df\u76f8\u5173\u56e0\u7d20'),('alcohol','\u7ecf\u5e38\u996e\u9152',15,'\u996e\u9152\u76f8\u5173\u56e0\u7d20'),('family','\u6709',25,'\u5bb6\u65cf\u53f2\u56e0\u7d20'),('symptoms','\u6709\u591a\u9879\u6216\u6301\u7eed\u52a0\u91cd',20,'\u75c7\u72b6\u56e0\u7d20')]
  for field,value,points,label in rules:
   if getattr(data,field)==value: score+=points; factors.append(label)
  level='低风险' if score<25 else ('中风险' if score<50 else '较高风险')
