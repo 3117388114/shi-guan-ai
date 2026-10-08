@@ -1,55 +1,107 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, field_validator
-from typing import Any, List, Union
+from typing import List, Union
 from fastapi.middleware.cors import CORSMiddleware
 import os
-app=FastAPI(title='Esophageal Screening MVP')
+
+app = FastAPI(title='Esophageal Screening MVP', default_response_class=JSONResponse)
 cors_origins = [origin.strip() for origin in os.getenv('CORS_ORIGINS', 'https://shi-guan-ai.vercel.app,http://localhost:5173,http://127.0.0.1:5173,http://172.20.10.2:5173').split(',') if origin.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=cors_origins, allow_methods=['*'], allow_headers=['*'])
+
+
 class Assessment(BaseModel):
- age:Union[str,int,float]; smoking:Union[str,bool]; alcohol:Union[str,bool]; family:Union[str,bool]; symptoms:Union[str,List[str]]
+    age: Union[str, int, float]
+    smoking: Union[str, bool]
+    alcohol: Union[str, bool]
+    family: Union[str, bool]
+    symptoms: Union[str, List[str]]
 
- @field_validator('age', mode='before')
- @classmethod
- def normalize_age(cls, value):
-  if isinstance(value, (int, float)) and not isinstance(value, bool):
-   return '\u0036\u0030\u5c81\u53ca\u4ee5\u4e0a' if value >= 60 else ('\u0034\u0030\u2013\u0035\u0039\u5c81' if value >= 40 else '\u0034\u0030\u5c81\u4ee5\u4e0b')
-  return value
+    @field_validator('age', mode='before')
+    @classmethod
+    def normalize_age(cls, value):
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return '60岁及以上' if value >= 60 else ('40–59岁' if value >= 40 else '40岁以下')
+        return str(value).strip() if value is not None else value
 
- @field_validator('smoking', mode='before')
- @classmethod
- def normalize_smoking(cls, value):
-  return '\u76ee\u524d\u5438\u70df' if value is True else ('\u4ece\u4e0d\u5438\u70df' if value is False else value)
+    @field_validator('smoking', mode='before')
+    @classmethod
+    def normalize_smoking(cls, value):
+        if value is True or (isinstance(value, str) and value.strip().lower() in {'yes', 'true', '目前吸烟'}):
+            return '目前吸烟'
+        if value is False or (isinstance(value, str) and value.strip().lower() in {'no', 'false', '从不吸烟'}):
+            return '从不吸烟'
+        return str(value).strip() if value is not None else value
 
- @field_validator('alcohol', mode='before')
- @classmethod
- def normalize_alcohol(cls, value):
-  return '\u7ecf\u5e38\u996e\u9152' if value is True else ('\u4e0d\u996e\u9152' if value is False else value)
+    @field_validator('alcohol', mode='before')
+    @classmethod
+    def normalize_alcohol(cls, value):
+        if value is True or (isinstance(value, str) and value.strip().lower() in {'yes', 'true', '经常饮酒'}):
+            return '经常饮酒'
+        if value is False or (isinstance(value, str) and value.strip().lower() in {'no', 'false', '不饮酒'}):
+            return '不饮酒'
+        return str(value).strip() if value is not None else value
 
- @field_validator('family', mode='before')
- @classmethod
- def normalize_family(cls, value):
-  return '\u6709' if value is True else ('\u6ca1\u6709' if value is False else value)
+    @field_validator('family', mode='before')
+    @classmethod
+    def normalize_family(cls, value):
+        if value is True or (isinstance(value, str) and value.strip().lower() in {'yes', 'true', '有'}):
+            return '有'
+        if value is False or (isinstance(value, str) and value.strip().lower() in {'no', 'false', '没有'}):
+            return '没有'
+        return str(value).strip() if value is not None else value
 
- @field_validator('symptoms', mode='before')
- @classmethod
- def normalize_symptoms(cls, value):
-  if isinstance(value, list):
-   return '\u6ca1\u6709' if not value else ('\u6709\u591a\u9879\u6216\u6301\u7eed\u52a0\u91cd' if len(value) > 1 else '\u6709\u5176\u4e2d\u4e00\u9879')
-  return value
+    @field_validator('symptoms', mode='before')
+    @classmethod
+    def normalize_symptoms(cls, value):
+        if isinstance(value, list):
+            return '没有' if not value else ('有多项或持续加重' if len(value) > 1 else '有其中一项')
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {'yes', 'true'}:
+                return '有其中一项'
+            if normalized in {'no', 'false'}:
+                return '没有'
+            return value.strip()
+        return value
+
+
 @app.get('/api/health')
-def health(): return {'status':'ok','service':'esophageal-screening'}
+def health():
+    return {'status': 'ok', 'service': 'esophageal-screening'}
+
+
 @app.get('/api/questionnaire')
-def questionnaire(): return {'version':'0.1-demo','disclaimer':'研究/演示原型，不用于临床诊断'}
+def questionnaire():
+    return {'version': '0.1-demo', 'disclaimer': '研究/演示原型，不用于临床诊断'}
+
+
 @app.post('/api/assessment')
 def assessment(data:Assessment):
- score=0; factors=[]
- rules=[('age','60岁及以上',20,'年龄因素'),('smoking','目前吸烟',20,'吸烟相关因素'),('alcohol','经常饮酒',15,'饮酒相关因素'),('family','有',25,'家族史因素'),('symptoms','有多项或持续加重',20,'症状因素')]
- rules=[('age','\u0036\u0030\u5c81\u53ca\u4ee5\u4e0a',20,'\u5e74\u9f84\u56e0\u7d20'),('smoking','\u76ee\u524d\u5438\u70df',20,'\u5438\u70df\u76f8\u5173\u56e0\u7d20'),('alcohol','\u7ecf\u5e38\u996e\u9152',15,'\u996e\u9152\u76f8\u5173\u56e0\u7d20'),('family','\u6709',25,'\u5bb6\u65cf\u53f2\u56e0\u7d20'),('symptoms','\u6709\u591a\u9879\u6216\u6301\u7eed\u52a0\u91cd',20,'\u75c7\u72b6\u56e0\u7d20')]
- for field,value,points,label in rules:
-  if getattr(data,field)==value: score+=points; factors.append(label)
- level='低风险' if score<25 else ('中风险' if score<50 else '较高风险')
- rec=['保持均衡饮食，避免过烫食物，维持健康生活方式。']
- if data.symptoms!='没有': rec.append('如症状持续、明显或进行性加重，建议尽快咨询专业医疗人员。')
- else: rec.append('可结合个人情况向专业医疗人员了解适宜的筛查建议。')
- return {'risk_level':level,'risk_score':score,'factors':factors,'recommendations':rec,'disclaimer':'研究/演示原型，不用于临床诊断。'}
+    score = 0
+    factors = []
+    rules = [
+        ('age', '60岁及以上', 20, '年龄因素'),
+        ('smoking', '目前吸烟', 20, '吸烟相关因素'),
+        ('alcohol', '经常饮酒', 15, '饮酒相关因素'),
+        ('family', '有', 25, '家族史因素'),
+        ('symptoms', '有多项或持续加重', 20, '症状因素'),
+    ]
+    for field, value, points, label in rules:
+        if getattr(data, field) == value:
+            score += points
+            factors.append(label)
+    level = '低风险' if score < 25 else ('中风险' if score < 50 else '较高风险')
+    rec = ['保持均衡饮食，避免过烫食物，维持健康生活方式。']
+    if data.symptoms != '没有':
+        rec.append('如症状持续、明显或进行性加重，建议尽快咨询专业医疗人员。')
+    else:
+        rec.append('可结合个人情况向专业医疗人员了解适宜的筛查建议。')
+
+    return JSONResponse(content={
+        'risk_level': level,
+        'risk_score': score,
+        'factors': factors,
+        'recommendations': rec,
+        'disclaimer': '研究/演示原型，不用于临床诊断。',
+    })
