@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 
 app = FastAPI(title='Esophageal Screening MVP', default_response_class=JSONResponse)
-cors_origins = [origin.strip() for origin in os.getenv('CORS_ORIGINS', 'https://shi-guan-ai.vercel.app,http://localhost:5173,http://127.0.0.1:5173,http://172.20.10.2:5173').split(',') if origin.strip()]
+cors_origins = [origin.strip() for origin in os.getenv('CORS_ORIGINS', 'https://shi-guan-ai.vercel.app,http://47.114.125.73,http://localhost:5173,http://127.0.0.1:5173,http://172.20.10.2:5173').split(',') if origin.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=cors_origins, allow_methods=['*'], allow_headers=['*'])
 
 

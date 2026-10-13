@@ -61,8 +61,7 @@ type KnowledgeTopic = {
 };
 
 const API_BASE = import.meta.env.PROD
-  ? (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ||
-    "https://shi-guan-ai.onrender.com"
+  ? ""
   : (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ||
     "http://localhost:8000";
 
