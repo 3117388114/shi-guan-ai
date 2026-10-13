@@ -22,11 +22,7 @@ if ("serviceWorker" in navigator)
   );
 
 type A = {
-  age: string;
-  smoking: string;
-  alcohol: string;
-  family: string;
-  symptoms: string;
+  [key: string]: string | string[];
 };
 
 type AssessmentResult = {
@@ -34,6 +30,11 @@ type AssessmentResult = {
   risk_score?: number;
   factors?: string[];
   recommendations?: string[];
+  domain_scores?: Record<string, number>;
+  major_factors?: string[];
+  modifiable_factors?: string[];
+  danger_signs?: string[];
+  warning_signs?: string[];
   disclaimer?: string;
   error?: string;
 };
@@ -69,34 +70,53 @@ console.info("[esophageal-screening] API_BASE_URL:", API_BASE);
 
 const qs = [
   {
-    key: "age",
     title: "基本信息",
-    label: "您的年龄段",
-    options: ["40岁以下", "40–59岁", "60岁及以上"],
+    description: "用于了解基础人群特征和流行病学背景。",
+    fields: [
+      { key: "age", label: "年龄段", options: ["40岁以下", "40–59岁", "60岁及以上"] },
+      { key: "gender", label: "性别", options: ["男", "女"] },
+      { key: "region", label: "是否来自食管癌相关高发地区？", options: ["否", "是", "不确定"] },
+      { key: "regional_research", label: "地区研究因素（如潮汕等）", options: ["无", "作为地区研究因素了解", "不确定"] },
+    ],
   },
   {
-    key: "smoking",
     title: "生活方式",
-    label: "吸烟情况",
-    options: ["从不吸烟", "曾经吸烟，已戒", "目前吸烟"],
+    description: "关注吸烟、饮酒暴露及其持续时间。",
+    fields: [
+      { key: "smoking", label: "吸烟情况", options: ["从不吸烟", "曾经吸烟但已戒烟", "当前吸烟"] },
+      { key: "smoking_years", label: "吸烟年限", options: ["无", "<10年", "10-20年", ">20年"] },
+      { key: "alcohol", label: "饮酒情况", options: ["不饮酒", "偶尔饮酒", "经常饮酒"] },
+      { key: "alcohol_years", label: "饮酒年限", options: ["无", "<10年", "10-20年", ">20年"] },
+      { key: "alcohol_frequency", label: "饮酒频率", options: ["无", "每月少于1次", "每周1-2次", "每周3次及以上"] },
+    ],
   },
   {
-    key: "alcohol",
-    title: "生活方式",
-    label: "饮酒情况",
-    options: ["不饮酒", "偶尔饮酒", "经常饮酒"],
+    title: "饮食习惯",
+    description: "重点关注长期高温饮食和饮品暴露，不将普通饮茶本身等同于危险因素。",
+    fields: [
+      { key: "hot_food", label: "长期食用过烫食物", options: ["很少", "偶尔", "经常"] },
+      { key: "hot_drink", label: "长期饮用高温茶饮或饮品", options: ["无", "偶尔", "经常"] },
+      { key: "pickled_food", label: "腌制食品摄入", options: ["少", "一般", "多"] },
+      { key: "fresh_food", label: "新鲜蔬菜水果摄入", options: ["充足", "一般", "较少"] },
+    ],
   },
   {
-    key: "family",
-    title: "家族史 / 既往史",
-    label: "直系亲属是否有食管癌病史？",
-    options: ["没有", "不清楚", "有"],
+    title: "家族及疾病史",
+    description: "用于识别遗传相关线索和食管相关疾病因素。",
+    fields: [
+      { key: "family", label: "一级亲属是否有食管癌或上消化道肿瘤？", options: ["无", "不清楚", "有"] },
+      { key: "gerd", label: "长期胃食管反流症状", options: ["无", "有"] },
+      { key: "barrett", label: "Barrett 食管病史", options: ["无", "有"] },
+      { key: "esophageal_disease", label: "食管相关疾病史", options: ["无", "有"] },
+      { key: "bmi", label: "BMI", options: ["<18.5", "18.5-24", "24-28", "≥28", "不清楚"] },
+    ],
   },
   {
-    key: "symptoms",
-    title: "相关症状",
-    label: "近期是否有持续吞咽不适、进行性吞咽困难或体重下降？",
-    options: ["没有", "有其中一项", "有多项或持续加重"],
+    title: "危险信号提醒",
+    description: "本模块不参与主要风险评分；如出现相关信号，请尽快咨询专业医疗人员。",
+    fields: [
+      { key: "danger_signs", label: "近期是否出现以下情况？", options: ["无", "进行性吞咽困难", "食物梗阻感", "不明原因体重下降", "胸骨后不适", "贫血相关表现"] },
+    ],
   },
 ];
 
@@ -121,7 +141,7 @@ const actionPlans: Record<
     ],
   },
   medium: {
-    label: "风险中等：结合个人情况进一步咨询",
+    label: "一般风险：结合个人情况进一步咨询",
     summary: "当前结果提示需要继续关注自身风险因素，并结合个人情况进行判断。",
     items: [
       "结合年龄、家族史、吸烟饮酒等因素进行进一步健康咨询。",
@@ -241,6 +261,7 @@ function getRiskTone(riskLevel?: string): RiskTone {
   if (normalized.includes("高") || normalized.includes("high")) return "high";
   if (
     normalized.includes("中") ||
+    normalized.includes("一般") ||
     normalized.includes("moderate") ||
     normalized.includes("medium")
   )
@@ -258,11 +279,11 @@ function App() {
   const [page, setPage] = useState<"home" | "assessment" | "result">("home");
   const [step, setStep] = useState(0);
   const [ans, setAns] = useState<A>({
-    age: "",
-    smoking: "",
-    alcohol: "",
-    family: "",
-    symptoms: "",
+    age: "", gender: "", region: "", regional_research: "",
+    smoking: "", smoking_years: "", alcohol: "", alcohol_years: "", alcohol_frequency: "",
+    hot_food: "", hot_drink: "", pickled_food: "", fresh_food: "",
+    family: "", gerd: "", barrett: "", esophageal_disease: "", bmi: "",
+    danger_signs: "",
   });
   const [result, setResult] = useState<AssessmentResult>();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -310,11 +331,8 @@ function App() {
     try {
       const requestUrl = `${API_BASE}/api/assessment`;
       const requestBody = {
-        age: String(ans.age),
-        smoking: String(ans.smoking),
-        alcohol: String(ans.alcohol),
-        family: String(ans.family),
-        symptoms: String(ans.symptoms),
+        ...Object.fromEntries(Object.entries(ans).map(([key, value]) => [key, Array.isArray(value) ? value : String(value)])),
+        symptoms: String(ans.danger_signs || "无"),
       };
       console.info(
         "[esophageal-screening] request start:",
@@ -347,6 +365,8 @@ function App() {
       setResult({
         risk_level: data.risk_level,
         risk_score: data.risk_score,
+        domain_scores: data.domain_scores && typeof data.domain_scores === "object" ? data.domain_scores as Record<string, number> : {},
+        major_factors: Array.isArray(data.major_factors) ? data.major_factors.filter((item): item is string => typeof item === "string") : [],
         disclaimer:
           typeof data.disclaimer === "string" ? data.disclaimer : undefined,
         factors: data.factors.filter(
@@ -355,6 +375,9 @@ function App() {
         recommendations: data.recommendations.filter(
           (item): item is string => typeof item === "string",
         ),
+        modifiable_factors: Array.isArray(data.modifiable_factors) ? data.modifiable_factors.filter((item): item is string => typeof item === "string") : [],
+        danger_signs: Array.isArray(data.danger_signs) ? data.danger_signs.filter((item): item is string => typeof item === "string") : [],
+        warning_signs: Array.isArray(data.warning_signs) ? data.warning_signs.filter((item): item is string => typeof item === "string") : [],
       });
     } catch (error) {
       console.error("[esophageal-screening] assessment failed:", error);
@@ -367,6 +390,19 @@ function App() {
 
   const factors = result?.factors ?? [];
   const recommendations = result?.recommendations ?? [];
+  const modifiableFactors = result?.modifiable_factors ?? [];
+  const warningSigns = result?.danger_signs ?? result?.warning_signs ?? [];
+  const majorFactors = result?.major_factors ?? factors;
+  const domainScores = result?.domain_scores ?? {};
+  const domainCaps: Record<string, number> = {
+    基础人群: 15,
+    地域因素: 8,
+    生活方式: 16,
+    饮食因素: 14,
+    家族史: 12,
+    疾病史: 14,
+    BMI: 2,
+  };
   const riskTone = getRiskTone(result?.risk_level);
   const actionPlan = actionPlans[riskTone];
   const visibleKnowledgeTopics =
@@ -591,29 +627,29 @@ function App() {
           <div className="assessment-intro">
             <p className="eyebrow"><span className="eyebrow-dot" /> 健康风险提示</p>
             <h1>用 5 步了解自己的食管健康</h1>
-            <p>请选择最符合您当前情况的选项。评估结果用于健康沟通，不代表临床诊断。</p>
+            <p>本评估重点关注高危因素综合情况，危险信号单独提醒，不代表临床诊断。</p>
           </div>
           <div className="progress">
             <div className="progress-heading"><span>评估进度</span><b>STEP {String(step + 1).padStart(2, "0")} / 05</b></div>
-            <div className="step-track">{qs.map((item, index) => <span key={item.key} className={index <= step ? "active" : ""}><i>{index + 1}</i><small>{item.title.split(" / ")[0]}</small></span>)}</div>
+            <div className="step-track">{qs.map((item, index) => <span key={item.title} className={index <= step ? "active" : ""}><i>{index + 1}</i><small>{item.title}</small></span>)}</div>
             <div className="progress-bar"><i style={{ width: `${((step + 1) / qs.length) * 100}%` }} /></div>
           </div>
           <section className="question">
             <p className="eyebrow">{qs[step].title}</p>
-            <h2>{qs[step].label}</h2>
-            <p className="muted">请选择最符合您当前情况的选项</p>
-            <div className="options">
-              {qs[step].options.map((o) => (
-                <button
-                  className={
-                    ans[qs[step].key as keyof A] === o ? "selected" : ""
-                  }
-                  onClick={() => setAns({ ...ans, [qs[step].key]: o })}
-                  key={o}
-                >
-                  {o}
-                  <span>●</span>
-                </button>
+            <h2>{qs[step].title === "危险信号提醒" ? "是否出现需要及时关注的情况？" : "完善本模块健康信息"}</h2>
+            <p className="muted">{qs[step].description}</p>
+            <div className="module-fields">
+              {qs[step].fields.map((field) => (
+                <div className="field-group" key={field.key}>
+                  <h3>{field.label}</h3>
+                  <div className="options">
+                    {field.options.map((o) => (
+                      <button className={ans[field.key] === o ? "selected" : ""} onClick={() => setAns({ ...ans, [field.key]: o })} key={o}>
+                        {o}<span>●</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
             <div className="actions">
@@ -626,7 +662,7 @@ function App() {
               {step < qs.length - 1 ? (
                 <button
                   className="primary"
-                  disabled={!ans[qs[step].key as keyof A]}
+                  disabled={qs[step].fields.some((field) => !ans[field.key])}
                   onClick={() => setStep(step + 1)}
                 >
                   下一步 <ArrowRight size={18} />
@@ -634,7 +670,7 @@ function App() {
               ) : (
                 <button
                   className="primary"
-                  disabled={!ans[qs[step].key as keyof A] || isSubmitting}
+                  disabled={qs[step].fields.some((field) => !ans[field.key]) || isSubmitting}
                   onClick={submit}
                 >
                   {isSubmitting ? "正在生成评估结果…" : "生成评估结果"}
@@ -707,6 +743,70 @@ function App() {
                   <p className="empty-state">暂未发现明显风险因素</p>
                 )}
               </section>
+
+              <section className="report-section domain-section">
+                <div className="section-heading">
+                  <div><p className="section-kicker">RISK CONTRIBUTION</p><h2>风险贡献分析</h2></div>
+                  <Activity size={22} />
+                </div>
+                <div className="domain-list">
+                  {Object.entries(domainCaps).map(([name, cap]) => {
+                    const value = Number(domainScores[name] ?? 0);
+                    return <div className="domain-row" key={name}>
+                      <div className="domain-label"><span>{name}</span><b>{value} / {cap}</b></div>
+                      <div className="domain-bar"><i style={{ width: `${Math.min(100, (value / cap) * 100)}%` }} /></div>
+                    </div>;
+                  })}
+                </div>
+                <p className="modifiable-note">各域分值为项目原型的风险提示贡献，不代表临床验证权重。</p>
+              </section>
+
+              <section className="report-section">
+                <div className="section-heading">
+                  <div><p className="section-kicker">MAJOR FACTORS</p><h2>主要风险因素</h2></div>
+                  <ShieldCheck size={22} />
+                </div>
+                {majorFactors.length > 0 ? <div className="factor-list">{majorFactors.map((factor) => <span className="factor-chip" key={factor}><CheckCircle2 size={16} />{factor}</span>)}</div> : <p className="empty-state">当前未发现明显贡献因素</p>}
+              </section>
+
+              {warningSigns.length > 0 && (
+                <section className="report-section warning-section">
+                  <div className="section-heading">
+                    <div>
+                      <p className="section-kicker">URGENT ATTENTION</p>
+                      <h2>危险信号提醒</h2>
+                    </div>
+                    <Info size={22} />
+                  </div>
+                  <p className="warning-copy">以下情况不直接等同于疾病诊断，但建议尽快咨询专业医疗人员：</p>
+                  <div className="factor-list">
+                    {warningSigns.map((sign) => <span className="factor-chip warning-chip" key={sign}><Info size={16} />{sign}</span>)}
+                  </div>
+                </section>
+              )}
+
+              {warningSigns.length === 0 && (
+                <section className="report-section quiet-warning">
+                  <div className="section-heading"><div><p className="section-kicker">DANGER SIGNS</p><h2>危险信号提醒</h2></div><Info size={22} /></div>
+                  <p className="empty-state">未发现当前问卷中的明显危险信号</p>
+                </section>
+              )}
+
+              {modifiableFactors.length > 0 && (
+                <section className="report-section modifiable-section">
+                  <div className="section-heading">
+                    <div>
+                      <p className="section-kicker">HEALTH ACTION</p>
+                      <h2>可改善因素</h2>
+                    </div>
+                    <Activity size={22} />
+                  </div>
+                  <div className="factor-list">
+                    {modifiableFactors.map((factor) => <span className="factor-chip" key={factor}><CheckCircle2 size={16} />{factor}</span>)}
+                  </div>
+                  <p className="modifiable-note">可从戒烟、限制酒精摄入、避免长期高温饮食等方向进行健康管理。</p>
+                </section>
+              )}
 
               <section className="report-section">
                 <div className="section-heading">
